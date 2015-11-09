@@ -56,8 +56,11 @@ function s:IsBlockBegin(line)
   return 0
 endfunction
 
+function s:IsTableEnd(line)
+  return a:line =~# '\m\v^\s*%(\}|\}\,)'
+endfunction
 function s:IsBlockEnd(line)
-  return a:line =~# '\m\v^\s*%(end>|else>|elseif>|until>|\})'
+  return a:line =~# '\m\v^\s*%(end>|else>|elseif>|until>)'
 endfunction
 function s:HasImmediateBlockEnd(line)
   return a:line =~# '\m\v%(<end>|until>)'
@@ -195,12 +198,12 @@ function! s:GetPrevLines()
 
     call insert(lines, line, 0)
 
-    if s:IsBlockBegin(line) || s:IsBlockEnd(line) || s:IsSingleLineComment(line)
+    if s:IsBlockBegin(line) || s:IsBlockEnd(line) || IsTableEnd(line) || s:IsSingleLineComment(line)
       break
     endif
     
     " part of a function call argument list, or table
-    if match(line, '\v^.+,\s*') > -1
+    if match(line, '\v^.+[^\}],\s*') > -1
       continue
     endif
 
@@ -306,7 +309,9 @@ function! GetLuaIndent()
   if s:LinesParenBalanced(prev_lines)
     if s:IsSingleLineComment(prev_lines[0])
       " pass
-    elseif s:IsBlockBegin(prev_lines[0]) || s:IsTableBegin(prev_lines[0])
+    elseif s:IsTableBegin(prev_lines[0])
+      let indent += 2 * &shiftwidth
+    elseif s:IsBlockBegin(prev_lines[0])
       let indent += &shiftwidth
       if s:HasImmediateBlockEnd(prev_lines[0])
         let indent -= &shiftwidth
@@ -333,6 +338,9 @@ function! GetLuaIndent()
 
   if s:IsBlockEnd(cur_line)
     let indent -= &shiftwidth
+  endif
+  if s:IsTableEnd(cur_line)
+    let indent -= 2 * &shiftwidth
   endif
   if s:IsAssignmentAndRvalue(cur_line)
     let indent += &shiftwidth
